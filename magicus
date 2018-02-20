@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #-----Globals-------
-SAVE_PATH="/usr/local/etc";
-CONFIG_PATH="$SAVE_PATH/magicus/.magicus";
-MONSTER_PATH="$SAVE_PATH/magicus/.magicus_monsters";
-PLAYER_PATH="$SAVE_PATH/magicus/.magicus_player";
+SAVE_PATH=".";
+CONFIG_PATH="$SAVE_PATH/.magicus";
+MONSTER_PATH="$SAVE_PATH/.magicus_monsters";
+PLAYER_PATH="$SAVE_PATH/.magicus_player";
 
 DIR="";
 FOLDER_NAME="";
@@ -73,13 +73,13 @@ draw_line()
 draw_status_bar()
 {
 	draw_line "$FOLDER_NAME";
-	echo "Hp:$HEALTH/$CONSTITUTION Att:$ATTACK Dam:$DAMAGE Def:$DEFENSE Mag:$MAGIC Lvl:$LEVEL"; 
+	echo "Hp:$HEALTH/$CONSTITUTION Att:$ATTACK Dam:$DAMAGE Def:$DEFENSE Mag:$MAGIC Lvl:$LEVEL";
 	draw_line $(echo "$FOLDER_NAME" | tr 'a-zA-Z0-9 ' '-');
 }
 
 to_runic()
 {
-	echo "$@" | 
+	echo "$@" |
 	tr 'A-Z' 'a-z' |
 	sed 's/ /᛫/g' |
 	sed 's/\./᛭/g' |
@@ -114,7 +114,7 @@ process_command()
 		go_direction $2;
 	elif [ "$(echo $1 | tr 'A-Z' 'a-z')" = "back" ]; then
 		go_direction 'back';
-	elif [ $DIR_CHECK -gt 0 ]; then	
+	elif [ $DIR_CHECK -gt 0 ]; then
 		go_direction $1;
 	else
 		echo "Sorry, I don't understand: $1";
@@ -152,7 +152,7 @@ get_room_adjective()
 	else
 		# Random descriptions go here
 		echo 'a filthy';
-	fi	
+	fi
 }
 
 get_room_type()
@@ -165,7 +165,7 @@ get_room_type()
 		echo 'corridor';
 	else
 		echo 'room';
-	fi	
+	fi
 }
 
 dice_roll()
@@ -188,7 +188,7 @@ attack_monster()
 			MONSTER_DEFENSE=$(get_monster_prop defense $MONSTER);
 			PLAYER_ATTACK_ROLL=$(expr $(dice_roll 20) + $ATTACK);
 			MONSTER_DEFENSE_ROLL=$(expr $(dice_roll 20) + $MONSTER_DEFENSE);
-			
+
 			ATTACK_TEXT="You attack $2 with your $WEAPON. ";
 
 			if (( $MONSTER_DEFENSE_ROLL <= $PLAYER_ATTACK_ROLL )); then
@@ -332,7 +332,7 @@ list_monsters()
 
 list_objects()
 {
-	echo "Objects  : $(cd $DIR && ls -1 -p | grep -v / | tr '\n' ' ')";	
+	echo "Objects  : $(cd $DIR && ls -1 -p | grep -v / | tr '\n' ' ')";
 }
 
 list_exits()
