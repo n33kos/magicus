@@ -1,10 +1,9 @@
 #!/bin/bash
 
 #-----Globals-------
-SAVE_PATH=".";
-CONFIG_PATH="$SAVE_PATH/.magicus";
-MONSTER_PATH="$SAVE_PATH/.magicus_monsters";
-PLAYER_PATH="$SAVE_PATH/.magicus_player";
+CONFIG_PATH=".magicus";
+MONSTER_PATH=".magicus_monsters";
+PLAYER_PATH=".magicus_player";
 
 DIR="";
 FOLDER_NAME="";
