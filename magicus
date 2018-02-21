@@ -1,19 +1,17 @@
 #!/bin/bash
 
 #-----Globals-------
-CONFIG_PATH=".magicus";
-MONSTER_PATH=".magicus_monsters";
-PLAYER_PATH=".magicus_player";
-
 DIR="";
 FOLDER_NAME="";
-LAST_COMMAND="";
 MONSTERS=();
+OBJECTS=();
 
-FONT_RESTORE='\033[0m';
-FONT_RED='\033[00;31m';
-FONT_GREEN='\033[00;32m';
-
+#------Source--------
+source utils;
+source player;
+source monsters;
+source objects;
+source rooms;
 
 #-----Functions------
 init_game_loop()
@@ -24,433 +22,59 @@ init_game_loop()
 
 	while true; do
 		echo "";
-		read -ep "ᛥᛜ" COMMAND;
+		read -ep ">" COMMAND;
 		echo "";
 		process_command $COMMAND;
 	done
-}
-
-init_files()
-{
-	if [ ! -d "$SAVE_PATH/magicus" ]; then
-		mkdir -p "$SAVE_PATH/magicus";
-	fi
-
-	if [ ! -e "$CONFIG_PATH" ] ; then
-	    touch "$CONFIG_PATH";
-	    DEFAULT_CONFIG="ENCOUNTER_PERCENTAGE=\"15\"";
-	    echo -e "$DEFAULT_CONFIG" | cat >> $CONFIG_PATH;
-	fi
-
-	if [ ! -e "$PLAYER_PATH" ] ; then
-	    touch "$PLAYER_PATH";
-	    CONST=$(expr 10 + $(jot -r 1 1 3));
-		DEFAULT_PLAYER_CONFIG="HEALTH=\"$CONST\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nCONSTITUTION=\"$CONST\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nATTACK=\"$(expr 10 + $(jot -r 1 1 3))\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nDAMAGE=\"$(expr 2 + $(jot -r 1 1 3))\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nDEFENSE=\"$(expr 10 + $(jot -r 1 1 3))\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nMAGIC=\"$(expr 10 + $(jot -r 1 1 3))\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nLEVEL=\"1\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nEXPERIENCE=\"0\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nWEAPON=\"dagger\"";
-		DEFAULT_PLAYER_CONFIG="$DEFAULT_PLAYER_CONFIG \nSAVEDIR=\"/\"";
-
-	    echo -e "$DEFAULT_PLAYER_CONFIG" | cat >> $PLAYER_PATH;
-	fi
-
-	if [ ! -e "$MONSTER_PATH" ] ; then
-	    touch "$MONSTER_PATH";
-	fi
-}
-
-draw_line()
-{
-	echo "--------------------------$1-----------------------------";
-}
-
-draw_status_bar()
-{
-	draw_line "$FOLDER_NAME";
-	echo "Hp:$HEALTH/$CONSTITUTION Att:$ATTACK Dam:$DAMAGE Def:$DEFENSE Mag:$MAGIC Lvl:$LEVEL";
-	draw_line $(echo "$FOLDER_NAME" | tr 'a-zA-Z0-9 ' '-');
-}
-
-to_runic()
-{
-	echo "$@" |
-	tr 'A-Z' 'a-z' |
-	sed 's/ /᛫/g' |
-	sed 's/\./᛭/g' |
-	sed 's/,/ᛧ/g' |
-	sed 's/ck/c/g' |
-	sed 's/th/ᚦ/g' |
-	sed 's/ng/ᛝ/g' |
-	tr 'abcdefghijklmnopqrstuvwxyz' 'ᚫᛒ<ᛞᛖᚠᚷᚺᛁᛃ<ᛚᛗᚾᛟᛈᛩᚱᛊᛏᚢᚡᚹᛪᛇᛘ';
-}
-
-process_command()
-{
-	if [ -z $1 ]; then return; fi
-
-	if (( $HEALTH <= 0 )); then
-		death $1
-		return;
-	fi
-
-	LAST_COMMAND=$@;
-	DIR_CHECK=$(cd $DIR && ls -p | grep '.\/' | grep -c $1);
-
-	if [ "$1" = "look" ]; then
-		look;
-	elif [ "$1" = "set" ]; then
-		set_player_value $2 $3
-	elif [ "$1" = "attack" ] || [ "$1" = "a" ] || [ "$1" = "att" ] || [ "$1" = "kill" ]; then
-		attack_monster $@
-	elif [ "$1" = "teleport" ]; then
-		change_directory $2;
-	elif [ "$1" = "go" ]; then
-		go_direction $2;
-	elif [ "$(echo $1 | tr 'A-Z' 'a-z')" = "back" ]; then
-		go_direction 'back';
-	elif [ $DIR_CHECK -gt 0 ]; then
-		go_direction $1;
-	else
-		echo "Sorry, I don't understand: $1";
-	fi
 }
 
 restart()
 {
 	rm $PLAYER_PATH;
 	rm $MONSTER_PATH;
+	rm $OBJECT_PATH;
+
 	init_files
-	soure_config $PLAYER_PATH;
+	source $PLAYER_PATH;
 	look;
 }
 
-death()
+process_command()
 {
-	echo "You are dead! Type \"restart\" to create a new character";
-	if [ "$1" = "restart" ]; then
-		restart
-	fi
-	return;
-}
+  if [ -z $1 ]; then return; fi
 
-get_room_adjective()
-{
-	local OBJECT_COUNT=$(cd $DIR && ls -p | grep -v / | grep -c -v '^\.');
+  if (( $HEALTH <= 0 )); then
+    death $1
+    return;
+  fi
 
-	if [ $OBJECT_COUNT -gt 10 ]; then
-		echo 'a packed';
-	elif [ $OBJECT_COUNT -gt 5 ]; then
-		echo 'a cluttered';
-	elif [ $OBJECT_COUNT -eq 0 ]; then
-		echo 'an empty';
-	else
-		# Random descriptions go here
-		echo 'a filthy';
-	fi
-}
+  LAST_COMMAND=$@;
+  DIR_CHECK=$(cd $DIR && ls -p | grep '.\/' | grep -c $1);
 
-get_room_type()
-{
-	local PATH_COUNT=$(cd $DIR && ls -l | grep -c ^d);
-
-	if [ $PATH_COUNT -eq 1 ]; then
-		echo 'hallway';
-	elif [ $PATH_COUNT -gt 1 ]; then
-		echo 'corridor';
-	else
-		echo 'room';
-	fi
-}
-
-dice_roll()
-{
-	echo $(jot -r 1 1 $1);
-}
-
-attack_monster()
-{
-	if [ -z $2 ]; then
-		echo "Nothing to attack.";
-		return;
-	fi
-
-	ATTACK_TEXT=""
-	for MONSTER in "${MONSTERS[@]}"; do
-		MONSTER_NAME=$(get_monster_prop name $MONSTER);
-
-		if [ "$MONSTER_NAME" == $2 ]; then
-			MONSTER_DEFENSE=$(get_monster_prop defense $MONSTER);
-			PLAYER_ATTACK_ROLL=$(expr $(dice_roll 20) + $ATTACK);
-			MONSTER_DEFENSE_ROLL=$(expr $(dice_roll 20) + $MONSTER_DEFENSE);
-
-			ATTACK_TEXT="You attack $2 with your $WEAPON. ";
-
-			if (( $MONSTER_DEFENSE_ROLL <= $PLAYER_ATTACK_ROLL )); then
-				DAMAGE_ROLL=$(dice_roll $DAMAGE);
-				MONSTER_HEALTH=$(get_monster_prop health $MONSTER);
-				NEW_HEALTH=$(expr $MONSTER_HEALTH - $DAMAGE_ROLL);
-
-				ATTACK_TEXT="$ATTACK_TEXT You hit the $2 for ${FONT_GREEN}$DAMAGE_ROLL${FONT_RESTORE} damage.";
-				if (( "$NEW_HEALTH" <= 0 )); then
-					ATTACK_TEXT="$ATTACK_TEXT You kill the $2!";
-					MONSTER_CONST=$(get_monster_prop constitution $MONSTER);
-					echo -e $ATTACK_TEXT;
-					increase_xp $MONSTER_CONST;
-					destroy_monster $MONSTER;
-					break;
-				else
-					write_monster_val health $NEW_HEALTH $MONSTER;
-				fi
-				echo -e $ATTACK_TEXT;
-			else
-				ATTACK_TEXT="$ATTACK_TEXT Your attack misses.";
-				echo -e $ATTACK_TEXT;
-			fi
-			break;
-		fi
-	done
-
-	load_monsters;
-	defend;
-}
-
-defend()
-{
-	for MONSTER in "${MONSTERS[@]}"; do
-		MONSTER_ATTACK=$(get_monster_prop defense $MONSTER);
-		MONSTER_NAME=$(get_monster_prop name $MONSTER);
-		MONSTER_WEAPON=$(get_monster_prop weapon $MONSTER);
-		MONSTER_ATTACK_ROLL=$(expr $(dice_roll 20) + $MONSTER_ATTACK);
-		PLAYER_DEFENSE_ROLL=$(expr $(dice_roll 20) + $DEFENSE);
-
-		DEFEND_TEXT="$MONSTER_NAME attacks you with its $MONSTER_WEAPON.";
-		if (( $PLAYER_DEFENSE_ROLL <= $MONSTER_ATTACK_ROLL )); then
-			MONSTER_DAMAGE=$(get_monster_prop damage $MONSTER);
-			DAMAGE_ROLL=$(dice_roll $MONSTER_DAMAGE);
-			NEW_HEALTH=$(expr $HEALTH - $DAMAGE_ROLL);
-
-			DEFEND_TEXT="$DEFEND_TEXT $MONSTER_NAME hits you for ${FONT_RED}$DAMAGE_ROLL${FONT_RESTORE} damage.";
-			if (( "$NEW_HEALTH" <= 0 )); then
-				DEFEND_TEXT="$DEFEND_TEXT ${FONT_RED}You have been killed by the $MONSTER_NAME!${FONT_RESTORE}";
-				set_player_value health 0;
-			else
-				set_player_value health $NEW_HEALTH;
-			fi
-		else
-			DEFEND_TEXT="$DEFEND_TEXT The attack misses.";
-		fi
-
-		if [ ${#DEFEND_TEXT} -gt 0 ]; then
-			echo -e $DEFEND_TEXT;
-		fi
-
-		if (( $HEALTH <= 0 )); then
-			break;
-		fi
-	done
-}
-
-look()
-{
-	draw_status_bar;
-	load_monsters;
-
-	local PATH_CNT=$(cd $DIR && ls -l | grep -c '^d');
-	local OBJECTS_CNT=$(cd $DIR && ls -p | grep -v / | grep -c -v '^\.');
-	local ADJECTIVE=$(get_room_adjective);
-	local TYPE=$(get_room_type);
-
-	ROOM_DESCRIPTION="You are in $ADJECTIVE $TYPE, there are";
-	if [ $OBJECTS_CNT -gt 0 ]; then
-		ROOM_DESCRIPTION="$ROOM_DESCRIPTION $OBJECTS_CNT objects strewn about and";
-	fi
-	ROOM_DESCRIPTION="$ROOM_DESCRIPTION $(expr $PATH_CNT + 1) doors leading elsewhere.";
-	ROOM_DESCRIPTION="$ROOM_DESCRIPTION $(monster_descriptions) \n";
-	if [ ${#MONSTERS[@]} -gt 0 ]; then
-		ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_monsters)";
-	fi
-	if [ $OBJECTS_CNT -gt 0 ]; then
-		ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_objects)";
-	fi
-	if [ $PATH_CNT -gt 0 ]; then
-		ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_exits)";
-	fi
-
-	printf "$ROOM_DESCRIPTION";
-}
-
-increase_xp()
-{
-	NEW_XP=$(expr $EXPERIENCE + $1);
-	if (( $NEW_XP >= ($LEVEL * 10) )); then
-		set_player_value level $(expr $LEVEL + 1);
-
-		NEW_CONST=$(expr $CONSTITUTION + $(jot -r 1 1 3));
-		set_player_value constitution $NEW_CONST;
-		set_player_value health $NEW_CONST;
-		set_player_value attack $(expr $ATTACK + $(jot -r 1 1 3));
-		set_player_value damage $(expr $DAMAGE + $(jot -r 1 1 3));
-		set_player_value defense $(expr $DEFENSE + $(jot -r 1 1 3));
-		set_player_value magic $(expr $MAGIC + $(jot -r 1 1 3));
-		echo "You have reached level $LEVEL!";
-	fi
-	set_player_value experience $NEW_XP;
-}
-
-get_reveal_verb()
-{
-	REVEAL_VERBS=("leap" "pounce" "crawl" "float" "walk" "snarl" "gambol");
-	REVEAL_INT=$(expr $(jot -r 1 1 ${#REVEAL_VERBS[@]}) - 1);
-	echo ${REVEAL_VERBS[$REVEAL_INT]};
-}
-
-monster_descriptions()
-{
-	MONSTER_DESCRIPTIONS="";
-	for MONSTER in "${MONSTERS[@]}"; do
-		MONSTER_DESCRIPTIONS="${MONSTER_DESCRIPTIONS}A wild $(get_monster_prop name $MONSTER) $(get_reveal_verb)s into your path! ";
-	done
-	if [ ${#MONSTER_DESCRIPTIONS} -gt 0 ]; then
-		echo -e $MONSTER_DESCRIPTIONS;
-	fi
-}
-
-list_monsters()
-{
-	MONSTERS_LIST="Monsters :";
-	for MONSTER in "${MONSTERS[@]}"; do
-		MONSTERS_LIST="$MONSTERS_LIST $(get_monster_prop name $MONSTER)";
-	done
-	echo $MONSTERS_LIST;
-}
-
-list_objects()
-{
-	echo "Objects  : $(cd $DIR && ls -1 -p | grep -v / | tr '\n' ' ')";
-}
-
-list_exits()
-{
-	echo "Exits    : (Back) $(cd $DIR && ls -p | grep '.\/' | tr '\n' ' ' | sed 's/\///g')";
-}
-
-go_direction()
-{
-	if [ "$1" = "back" ]; then
-		if [ "$DIR" = "/" ]; then
-			change_directory "/";
-		else
-			change_directory "$DIR/../";
-		fi
-		look;
-	elif [ -z "$1" ]; then
-		echo $(list_exits);
-	else
-		change_directory $(echo "$DIR/$1" | sed 's|//|/|');
-		look;
-	fi
-}
-
-change_directory()
-{
-	export DIR=$(cd $1 && pwd);
-	set_player_value savedir $DIR;
-	FOLDER_NAME="$(echo $DIR | sed 's/^\/$/Entrance Hall/g' | sed 's@.*/@@')";
-	encounter_monsters
-
-	echo $1;
-}
-
-set_player_value()
-{
-	write_config $(echo $1 | tr 'a-z' 'A-Z' ) $2 $PLAYER_PATH;
-}
-
-soure_config()
-{
-	. $1;
-}
-
-write_config()
-{
-	sed -i '' "s|\($1=*\).*|\1\"$2\"|" $3;
-	soure_config $3;
-}
-
-write_monster_val()
-{
-	MONSTER_ID=$(get_monster_prop "id" $MONSTER);
-	sed -ni '' "/^id:$MONSTER_ID.*/!p" $MONSTER_PATH;
-	echo $3 | sed -E "s/$1:[^\|]*/$1:$2/" | cat >> $MONSTER_PATH
-}
-
-destroy_monster()
-{
-	MONSTER_ID=$(get_monster_prop "id" $MONSTER);
-	sed -ni '' "/^id:$MONSTER_ID.*/!p" $MONSTER_PATH;
-}
-
-encounter_monsters()
-{
-	NEW_ENCOUNTER_ROLL=$(jot -r 1 0 100);
-	if [ $NEW_ENCOUNTER_ROLL -lt $ENCOUNTER_PERCENTAGE ]; then
-		generate_monster
-	fi
-}
-
-load_monsters()
-{
-	MONSTERS=($(cat $MONSTER_PATH | grep "room:$DIR|"));
-}
-
-get_monster_base_val()
-{
-	echo $(jot -r 1 $(expr $1 + 1) $2);
-}
-
-get_monster_prop()
-{
-	echo $2 | grep -o "$1:.\+" | sed "s/[|].*$//" | sed "s/$1://";
-}
-
-random_string()
-{
-    cat /dev/urandom | tr -d -c 'a-zA-Z0-9' | fold -w ${1:-32} | head -n 1
-}
-
-generate_monster()
-{
-	#enemies in order of difficulty, be sure to order correctly
-	MONSTER_TYPES=("roach" "spider" "slime" "kobold" "wyvern" "skeleton" "goblin" "orc" "troll" "drake" "dragon");
-	MONSTER_WEAPONS=("spines" "fangs" "goop" "claw" "beak" "dagger" "fist" "sword" "club" "teeth" "fire breath");
-	DUNGEON_DEPTH=$(echo $DIR | grep -o / | grep -c /);
-	MONSTER_INT=$(jot -r 1 1 ${#MONSTER_TYPES[@]});
-	MONSTER_INT=$(expr $MONSTER_INT - $(expr ${#MONSTER_TYPES[@]} - $LEVEL));
-	if (( $MONSTER_INT < 0 )); then
-		MONSTER_INT=0
-	fi
-
-  	MONSTER_NAME=${MONSTER_TYPES[$MONSTER_INT]};
-  	MONSTER_WEAPON=${MONSTER_WEAPONS[$MONSTER_INT]};
-	MONSTER_ROOM=$DIR;
-	MONSTER_CONSTITUTION="$(expr $LEVEL + $(get_monster_base_val $DUNGEON_DEPTH 10))";
-	MONSTER_HEALTH=$MONSTER_CONSTITUTION;
-	MONSTER_ATTACK="$(expr $LEVEL + $(get_monster_base_val $DUNGEON_DEPTH 10))";
-	MONSTER_DEFENSE="$(expr $LEVEL + $(get_monster_base_val $DUNGEON_DEPTH 10))";
-	MONSTER_DAMAGE="$(expr $LEVEL + $(get_monster_base_val $DUNGEON_DEPTH 2))";
-	MONSTER_MAGIC="$(expr $LEVEL + $(get_monster_base_val $DUNGEON_DEPTH 10))";
-
-	echo "id:$RANDOM$(echo $RANDOM | tr "0-9" "a-z")|room:$MONSTER_ROOM|name:$MONSTER_NAME|health:$MONSTER_HEALTH|constitution:$MONSTER_CONSTITUTION|attack:$MONSTER_ATTACK|defense:$MONSTER_DEFENSE|damage:$MONSTER_DAMAGE|magic:$MONSTER_MAGIC|weapon:$MONSTER_WEAPON|" | cat >> $MONSTER_PATH;
+  if [ "$1" = "look" ] || [ "$1" = "l" ]; then
+    look;
+  elif [ "$1" = "equip" ]; then
+  	equip_object $2
+  elif [ "$1" = "set" ]; then
+    set_player_value $2 $3
+  elif [ "$1" = "attack" ] || [ "$1" = "a" ] || [ "$1" = "att" ] || [ "$1" = "kill" ]; then
+    attack_monster $@
+  elif [ "$1" = "teleport" ]; then
+    change_room $2;
+  elif [ "$1" = "go" ]; then
+    go_direction $2;
+  elif [ "$(echo $1 | tr 'A-Z' 'a-z')" = "back" ]; then
+    go_direction 'back';
+  elif [ $DIR_CHECK -gt 0 ]; then
+    go_direction $1;
+  else
+    echo "Sorry, I don't understand: $1";
+  fi
 }
 
 #-------Execution------
+source magicus.conf;
 init_files
-soure_config $CONFIG_PATH;
-soure_config $PLAYER_PATH;
-change_directory $SAVEDIR;
+source $PLAYER_PATH;
+change_room $SAVEDIR;
 init_game_loop;

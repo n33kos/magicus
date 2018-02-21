@@ -1,0 +1,62 @@
+#!/bin/bash
+
+load_objects()
+{
+  all_files=($(cd $DIR && ls -1 -p | grep -v / | tr '\n' ' '));
+  for file in ${all_files[@]}; do
+    dotfile_entity_count=$(cat $OBJECT_PATH | grep -c "file:$file|room:$DIR");
+    if [ "$dotfile_entity_count" -eq "0" ]; then
+      generate_object $file $DIR
+    fi
+  done
+
+  #Load all object lines into global
+  OBJECTS=($(cat $OBJECT_PATH | grep "room:$DIR|"));
+}
+
+generate_object()
+{
+  #generate_object $1:filename $2:fileDir
+  fileSize=$(stat -f "%z" "$2/$1");
+
+  weapon_names=("sap" "dagger" "sword" "mace" "cudgel" "morningstar" "spear" "bow" "axe");
+  object_index=$(expr $fileSize % ${#weapon_names[@]})
+
+  object_dotfile_entity_line="id:$RANDOM$(rand_str)";
+  object_dotfile_entity_line="$object_dotfile_entity_line|file:$1";
+  object_dotfile_entity_line="$object_dotfile_entity_line|room:$DIR";
+  object_dotfile_entity_line="$object_dotfile_entity_line|type:weapon";
+  object_dotfile_entity_line="$object_dotfile_entity_line|damage:$(rand 1 20)";
+  object_dotfile_entity_line="$object_dotfile_entity_line|name:${weapon_names[$object_index]}";
+  object_dotfile_entity_line="$object_dotfile_entity_line|isvisible:true";
+
+  echo "$object_dotfile_entity_line|" | cat >> $OBJECT_PATH;
+}
+
+list_objects()
+{
+  object_list="Objects   :";
+  for object in "${OBJECTS[@]}"; do
+    is_visible="$(get_dotfile_prop isvisible $object)";
+    if [ "$is_visible" = "true" ]; then
+      object_list="$object_list $(get_dotfile_prop name $object)";
+    fi
+  done
+  echo $object_list;
+}
+
+equip_object()
+{
+  for object in "${OBJECTS[@]}"; do
+    object_name="$(get_dotfile_prop name $object)";
+    if [ "$object_name" = $1 ]; then
+      write_dotfile_val "isvisible" "false" $object $OBJECT_PATH;
+      set_player_value weapon $(get_dotfile_prop name $object);
+      set_player_value damage $(get_dotfile_prop damage $object);
+      echo "You equip the $object_name";
+      return;
+    fi
+  done
+
+  echo "Cannot equip $1"
+}

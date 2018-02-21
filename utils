@@ -1,0 +1,84 @@
+#!/bin/bash
+
+rand ()
+{
+  # rand $min $max
+  echo $(expr $RANDOM % $2 + $1);
+}
+
+rand_str()
+{
+  echo $(echo $RANDOM | tr "0-9" "a-z");
+}
+
+dice_roll()
+{
+  echo $(rand 1 $1);
+}
+
+write_dotfile_val()
+{
+  #write_dotfile_val $1:PropName $2:NewValue $3:EntityLine $4:DotfilePath
+  ID=$(get_dotfile_prop "id" $3);
+  sed -n -i.bak "/^id:$ID.*/!p" $4;
+  echo $3 | sed -E "s/$1:[^\|]*/$1:$2/" | cat >> $4
+}
+
+get_dotfile_prop()
+{
+  #get_dotfile_prop $1:property $2:EntityLine
+  echo $2 | grep -o "$1:.\+" | sed "s/[|].*$//" | sed "s/$1://";
+}
+
+destroy_dotfile_entity_line()
+{
+  #destroy_dotfile_entity_line $1:EntityLine $2:DotfilePath
+  ID=$(get_dotfile_prop "id" $1);
+  sed -n -i.bak "/^id:$ID.*/!p" $2;
+}
+
+to_runic()
+{
+  echo "$@" |
+  tr 'A-Z' 'a-z' |
+  sed 's/ /᛫/g' |
+  sed 's/\./᛭/g' |
+  sed 's/,/ᛧ/g' |
+  sed 's/ck/c/g' |
+  sed 's/th/ᚦ/g' |
+  sed 's/ng/ᛝ/g' |
+  tr 'abcdefghijklmnopqrstuvwxyz' 'ᚫᛒ<ᛞᛖᚠᚷᚺᛁᛃ<ᛚᛗᚾᛟᛈᛩᚱᛊᛏᚢᚡᚹᛪᛇᛘ';
+}
+
+draw_line()
+{
+  echo "--------------------------$1-----------------------------";
+}
+
+init_files()
+{
+  if [ ! -e "$PLAYER_PATH" ] ; then
+    touch "$PLAYER_PATH";
+    constitution=$(expr 10 + $(rand 1 3));
+    default_player_configs="HEALTH=\"$constitution\"";
+    default_player_configs="$default_player_configs \nCONSTITUTION=\"$constitution\"";
+    default_player_configs="$default_player_configs \nATTACK=\"$(expr 10 + $(rand 1 3))\"";
+    default_player_configs="$default_player_configs \nDAMAGE=\"$(expr 2 + $(rand 1 3))\"";
+    default_player_configs="$default_player_configs \nDEFENSE=\"$(expr 10 + $(rand 1 3))\"";
+    default_player_configs="$default_player_configs \nMAGIC=\"$(expr 10 + $(rand 1 3))\"";
+    default_player_configs="$default_player_configs \nLEVEL=\"1\"";
+    default_player_configs="$default_player_configs \nEXPERIENCE=\"0\"";
+    default_player_configs="$default_player_configs \nWEAPON=\"dagger\"";
+    default_player_configs="$default_player_configs \nSAVEDIR=\"/\"";
+
+    echo -e "$default_player_configs" | cat >> $PLAYER_PATH;
+  fi
+
+  if [ ! -e "$MONSTER_PATH" ] ; then
+    touch "$MONSTER_PATH";
+  fi
+
+  if [ ! -e "$OBJECT_PATH" ] ; then
+    touch "$OBJECT_PATH";
+  fi
+}

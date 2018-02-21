@@ -1,0 +1,158 @@
+#!/bin/bash
+
+encounter_monsters()
+{
+  new_encounter_roll=$(rand 0 100);
+  if [ $new_encounter_roll -lt $ENCOUNTER_PERCENTAGE ]; then
+    generate_monster
+  fi
+}
+
+load_monsters()
+{
+  MONSTERS=($(cat $MONSTER_PATH | grep "room:$DIR|"));
+}
+
+get_monster_base_val()
+{
+  echo $(rand $(expr $1 + 1) $2);
+}
+
+generate_monster()
+{
+  #enemies in order of difficulty, be sure to order correctly
+  monster_types=("roach" "spider" "slime" "kobold" "wyvern" "skeleton" "goblin" "orc" "troll" "drake" "dragon");
+  monster_weapons=("spines" "fangs" "goop" "claw" "beak" "dagger" "fist" "sword" "club" "teeth" "fire breath");
+  dungeon_depth=$(echo $DIR | grep -o / | grep -c /);
+
+  monster_int=$(rand 1 ${#monster_types[@]});
+  monster_int=$(expr $monster_int - $(expr ${#monster_types[@]} - $LEVEL));
+  if (( $monster_int < 0 )); then
+    monster_int=0
+  fi
+
+  monster_constitution="$(expr $LEVEL + $(get_monster_base_val $dungeon_depth 10))";
+
+  monster_dotfile_entity_line="id:$RANDOM$(rand_str)";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|room:$DIR";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|weapon:${monster_weapons[$monster_int]}";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|name:${monster_types[$monster_int]}";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|health:$monster_constitution";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|constitution:$monster_constitution";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|attack:$(expr $LEVEL + $(get_monster_base_val $dungeon_depth 10))";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|defense:$(expr $LEVEL + $(get_monster_base_val $dungeon_depth 10))";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|damage:$(expr $LEVEL + $(get_monster_base_val $dungeon_depth 2))";
+  monster_dotfile_entity_line="$monster_dotfile_entity_line|magic:$(expr $LEVEL + $(get_monster_base_val $dungeon_depth 10))";
+
+  echo "$monster_dotfile_entity_line|" | cat >> $MONSTER_PATH;
+}
+
+list_monsters()
+{
+  monsters_list="Monsters :";
+  for monster in "${MONSTERS[@]}"; do
+    monsters_list="$monsters_list $(get_dotfile_prop name $monster)";
+  done
+  echo $monsters_list;
+}
+
+get_reveal_verb()
+{
+  reveal_verbs=("leap" "pounce" "crawl" "float" "walk" "snarl" "gambol");
+  reveal_int=$(expr $(rand 1 ${#reveal_verbs[@]}) - 1);
+  echo ${reveal_verbs[$reveal_int]};
+}
+
+monster_descriptions()
+{
+  monster_descriptions="";
+  for monster in "${MONSTERS[@]}"; do
+    monster_descriptions="${monster_descriptions}A wild $(get_dotfile_prop name $monster) $(get_reveal_verb)s into your path! ";
+  done
+  if [ ${#monster_descriptions} -gt 0 ]; then
+    echo -e $monster_descriptions;
+  fi
+}
+
+attack_monster()
+{
+  if [ -z $2 ]; then
+    echo "Nothing to attack.";
+    return;
+  fi
+
+  attack_text=""
+  for monster in "${MONSTERS[@]}"; do
+    monster_name=$(get_dotfile_prop name $monster);
+
+    if [ "$monster_name" == $2 ]; then
+      monster_defense=$(get_dotfile_prop defense $monster);
+      player_attack_roll=$(expr $(dice_roll 20) + $ATTACK);
+      monster_defense_roll=$(expr $(dice_roll 20) + $monster_defense);
+
+      attack_text="You attack $2 with your $WEAPON. ";
+
+      if (( $monster_defense_roll <= $player_attack_roll )); then
+        damage_roll=$(dice_roll $DAMAGE);
+        monster_health=$(get_dotfile_prop health $monster);
+        new_health=$(expr $monster_health - $damage_roll);
+
+        attack_text="$attack_text You hit the $2 for ${FONT_GREEN}$damage_roll${FONT_RESTORE} damage.";
+        if (( "$new_health" <= 0 )); then
+          attack_text="$attack_text You kill the $2!";
+          monster_const=$(get_dotfile_prop constitution $monster);
+          echo -e $attack_text;
+          increase_xp $monster_const;
+          destroy_dotfile_entity_line $monster $MONSTER_PATH;
+          break;
+        else
+          write_dotfile_val health $new_health $monster $MONSTER_PATH;
+        fi
+        echo -e $attack_text;
+      else
+        attack_text="$attack_text Your attack misses.";
+        echo -e $attack_text;
+      fi
+      break;
+    fi
+  done
+
+  load_monsters;
+  defend;
+}
+
+defend()
+{
+  for monster in "${MONSTERS[@]}"; do
+    monster_attack=$(get_dotfile_prop defense $monster);
+    monster_name=$(get_dotfile_prop name $monster);
+    monster_weapon=$(get_dotfile_prop weapon $monster);
+    monster_attack_roll=$(expr $(dice_roll 20) + $monster_attack);
+    player_defense_roll=$(expr $(dice_roll 20) + $DEFENSE);
+
+    defend_text="$monster_name attacks you with its $monster_weapon.";
+    if (( $player_defense_roll <= $monster_attack_roll )); then
+      monster_damage=$(get_dotfile_prop damage $monster);
+      damage_roll=$(dice_roll $monster_damage);
+      new_health=$(expr $HEALTH - $damage_roll);
+
+      defend_text="$defend_text $monster_name hits you for ${FONT_RED}$damage_roll${FONT_RESTORE} damage.";
+      if (( "$new_health" <= 0 )); then
+        defend_text="$defend_text ${FONT_RED}You have been killed by the $monster_name!${FONT_RESTORE}";
+        set_player_value health 0;
+      else
+        set_player_value health $new_health;
+      fi
+    else
+      defend_text="$defend_text The attack misses.";
+    fi
+
+    if [ ${#defend_text} -gt 0 ]; then
+      echo -e $defend_text;
+    fi
+
+    if (( $HEALTH <= 0 )); then
+      break;
+    fi
+  done
+}

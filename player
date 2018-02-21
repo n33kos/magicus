@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set_player_value()
+{
+  write_config $(echo $1 | tr 'a-z' 'A-Z' ) $2 $PLAYER_PATH;
+}
+
+write_config()
+{
+  sed -i.bak "s|\($1=*\).*|\1\"$2\"|" $3;
+  source $3;
+}
+
+death()
+{
+  echo "You are dead! Type \"restart\" to create a new character";
+  if [ "$1" = "restart" ]; then
+    restart
+  fi
+  return;
+}
+
+draw_status_bar()
+{
+  draw_line "$FOLDER_NAME";
+  echo "HP:$HEALTH/$CONSTITUTION | ATT:$ATTACK | DAM:$DAMAGE | DEF:$DEFENSE | MAG:$MAGIC | LVL:$LEVEL |";
+  draw_line $(echo "$FOLDER_NAME" | tr 'a-zA-Z0-9 ' '-');
+}
+
+increase_xp()
+{
+  NEW_XP=$(expr $EXPERIENCE + $1);
+  if (( $NEW_XP >= ($LEVEL * 10) )); then
+    set_player_value level $(expr $LEVEL + 1);
+
+    NEW_CONST=$(expr $CONSTITUTION + $(rand 1 3));
+    set_player_value constitution $NEW_CONST;
+    set_player_value health $NEW_CONST;
+    set_player_value attack $(expr $ATTACK + $(rand 1 3));
+    set_player_value defense $(expr $DEFENSE + $(rand 1 3));
+    set_player_value magic $(expr $MAGIC + $(rand 1 3));
+    echo "You have reached level $LEVEL!";
+  fi
+  set_player_value experience $NEW_XP;
+}
+
+look()
+{
+  clear;
+  draw_status_bar;
+  load_objects;
+  load_monsters;
+
+  local PATH_CNT=$(cd $DIR && ls -l | grep -c '^d');
+  local OBJECTS_CNT=$(cd $DIR && ls -p | grep -v / | grep -c -v '^\.');
+  local ADJECTIVE=$(get_room_adjective);
+  local TYPE=$(get_room_type);
+
+  ROOM_DESCRIPTION="You are in $ADJECTIVE $TYPE, there are";
+  if [ $OBJECTS_CNT -gt 0 ]; then
+    ROOM_DESCRIPTION="$ROOM_DESCRIPTION $OBJECTS_CNT objects strewn about and";
+  fi
+  ROOM_DESCRIPTION="$ROOM_DESCRIPTION $(expr $PATH_CNT + 1) doors leading elsewhere.";
+  ROOM_DESCRIPTION="$ROOM_DESCRIPTION $(monster_descriptions) \n";
+  if [ ${#MONSTERS[@]} -gt 0 ]; then
+    ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_monsters)";
+  fi
+  if [ $OBJECTS_CNT -gt 0 ]; then
+    ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_objects)";
+  fi
+  if [ $PATH_CNT -gt 0 ]; then
+    ROOM_DESCRIPTION="$ROOM_DESCRIPTION \n$(list_exits)";
+  fi
+
+  printf "$ROOM_DESCRIPTION";
+}

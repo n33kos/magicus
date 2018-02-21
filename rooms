@@ -1,0 +1,60 @@
+#!/bin/bash
+
+get_room_adjective()
+{
+  local OBJECT_COUNT=$(cd $DIR && ls -p | grep -v / | grep -c -v '^\.');
+
+  if [ $OBJECT_COUNT -gt 10 ]; then
+    echo 'a packed';
+  elif [ $OBJECT_COUNT -gt 5 ]; then
+    echo 'a cluttered';
+  elif [ $OBJECT_COUNT -eq 0 ]; then
+    echo 'an empty';
+  else
+    # Random descriptions go here
+    echo 'a filthy';
+  fi
+}
+
+list_exits()
+{
+  echo "Exits    : (Back) $(cd $DIR && ls -p | grep '.\/' | tr '\n' ' ' | sed 's/\///g')";
+}
+
+get_room_type()
+{
+  local PATH_COUNT=$(cd $DIR && ls -l | grep -c ^d);
+
+  if [ $PATH_COUNT -eq 1 ]; then
+    echo 'hallway';
+  elif [ $PATH_COUNT -gt 1 ]; then
+    echo 'corridor';
+  else
+    echo 'room';
+  fi
+}
+
+go_direction()
+{
+  if [ "$1" = "back" ]; then
+    if [ "$DIR" = "/" ]; then
+      change_room "/";
+    else
+      change_room "$DIR/../";
+    fi
+    look;
+  elif [ -z "$1" ]; then
+    echo $(list_exits);
+  else
+    change_room $(echo "$DIR/$1" | sed 's|//|/|');
+    look;
+  fi
+}
+
+change_room()
+{
+  export DIR=$(cd $1 && pwd);
+  set_player_value savedir $DIR;
+  FOLDER_NAME="$(echo $DIR | sed 's/^\/$/Entrance Hall/g' | sed 's@.*/@@')";
+  encounter_monsters
+}
