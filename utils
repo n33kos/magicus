@@ -59,19 +59,7 @@ init_files()
 {
   if [ ! -e "$PLAYER_PATH" ] ; then
     touch "$PLAYER_PATH";
-    constitution=$(expr 10 + $(rand 1 3));
-    default_player_configs="HEALTH=\"$constitution\"";
-    default_player_configs="$default_player_configs \nCONSTITUTION=\"$constitution\"";
-    default_player_configs="$default_player_configs \nATTACK=\"$(expr 10 + $(rand 1 3))\"";
-    default_player_configs="$default_player_configs \nDAMAGE=\"$(expr 2 + $(rand 1 3))\"";
-    default_player_configs="$default_player_configs \nDEFENSE=\"$(expr 10 + $(rand 1 3))\"";
-    default_player_configs="$default_player_configs \nMAGIC=\"$(expr 10 + $(rand 1 3))\"";
-    default_player_configs="$default_player_configs \nLEVEL=\"1\"";
-    default_player_configs="$default_player_configs \nEXPERIENCE=\"0\"";
-    default_player_configs="$default_player_configs \nWEAPON=\"dagger\"";
-    default_player_configs="$default_player_configs \nSAVEDIR=\"/\"";
-
-    echo -e "$default_player_configs" | cat >> $PLAYER_PATH;
+    create_new_player;
   fi
 
   if [ ! -e "$MONSTER_PATH" ] ; then

@@ -16,15 +16,21 @@ source rooms;
 #-----Functions------
 init_game_loop()
 {
-	clear;
-	echo $(to_runic "Welcome To Magicus");
+  echo $(to_runic "Welcome To Magicus");
+  clear;
 	look;
 
-	while true; do
-		echo "";
-		read -ep ">" COMMAND;
-		echo "";
-		process_command $COMMAND;
+  while true; do
+    if (( $HEALTH <= 0 )); then
+      echo "$NAME has been slain at level $LEVEL! Press return to create a new character"
+      read -ep ">";
+      restart
+    else
+		  echo "";
+  		read -ep ">" command;
+  		echo "";
+  		process_command $command;
+    fi
 	done
 }
 
@@ -41,40 +47,84 @@ restart()
 
 process_command()
 {
-  if [ -z $1 ]; then return; fi
+  if [ -z $1 ]; then echo "Nothing happens."; fi
 
-  if (( $HEALTH <= 0 )); then
-    death $1
+  actions=("attack" "a" "equip" "e" "back" "go" "teleport");
+  free_actions=("look" "l" "set");
+
+  if [[ "${actions[@]}" =~ "${1}" ]]; then
+    process_action $@;
     return;
   fi
 
-  LAST_COMMAND=$@;
-  DIR_CHECK=$(cd $DIR && ls -p | grep '.\/' | grep -c $1);
-
-  if [ "$1" = "look" ] || [ "$1" = "l" ]; then
-    look;
-  elif [ "$1" = "equip" ]; then
-  	equip_object $2
-  elif [ "$1" = "set" ]; then
-    set_player_value $2 $3
-  elif [ "$1" = "attack" ] || [ "$1" = "a" ] || [ "$1" = "att" ] || [ "$1" = "kill" ]; then
-    attack_monster $@
-  elif [ "$1" = "teleport" ]; then
-    change_room $2;
-  elif [ "$1" = "go" ]; then
-    go_direction $2;
-  elif [ "$(echo $1 | tr 'A-Z' 'a-z')" = "back" ]; then
-    go_direction 'back';
-  elif [ $DIR_CHECK -gt 0 ]; then
-    go_direction $1;
-  else
-    echo "Sorry, I don't understand: $1";
+  if [[ "${free_actions[@]}" =~ "${1}" ]]; then
+    process_free_action $@;
+    return;
   fi
+
+  # Maybe can get rid of this if we change the names of the rooms
+  is_command_directory=$(cd $DIR && ls -p | grep '.\/' | grep -c $1);
+  if [ $is_command_directory -gt 0 ]; then
+    go_direction $1;
+    return;
+  fi
+
+  echo "Sorry, I don't understand $1";
+}
+
+process_action()
+{
+  case "$1" in
+    attack|a)
+      attack_monster $@;
+    ;;
+
+    equip|e)
+      equip_object $2;
+    ;;
+
+    equip|e)
+      equip_object $2;
+    ;;
+
+    teleport)
+      change_room $2;
+    ;;
+
+    go)
+      go_direction $2;
+    ;;
+
+    back)
+      go_direction "back";
+    ;;
+
+    *);;
+  esac
+
+  load_monsters;
+  defend;
+  player_heartbeat;
+}
+
+process_free_action()
+{
+  case "$1" in
+    look|l)
+      look;
+    ;;
+
+    set)
+      set_player_value $2 $3;
+    ;;
+
+    *);;
+  esac
 }
 
 #-------Execution------
 source magicus.conf;
-init_files
+init_files;
 source $PLAYER_PATH;
 change_room $SAVEDIR;
 init_game_loop;

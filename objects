@@ -6,7 +6,7 @@ load_objects()
   for file in ${all_files[@]}; do
     dotfile_entity_count=$(cat $OBJECT_PATH | grep -c "file:$file|room:$DIR");
     if [ "$dotfile_entity_count" -eq "0" ]; then
-      generate_object $file $DIR
+      generate_weapon $file $DIR
     fi
   done
 
@@ -14,19 +14,21 @@ load_objects()
   OBJECTS=($(cat $OBJECT_PATH | grep "room:$DIR|"));
 }
 
-generate_object()
+generate_weapon()
 {
-  #generate_object $1:filename $2:fileDir
+  #generate_weapon $1:filename $2:fileDir
   fileSize=$(stat -f "%z" "$2/$1");
 
-  weapon_names=("sap" "dagger" "sword" "mace" "cudgel" "morningstar" "spear" "bow" "axe");
+  weapon_names=("sap" "dagger" "sword" "bow" "mace" "cudgel" "morningstar" "spear" "axe" "crossbow");
+  weapon_base_damage=(2 3 4 5 6 7 8 9 10 11);
   object_index=$(expr $fileSize % ${#weapon_names[@]})
+  weapon_damage=$(rand $(expr ${weapon_base_damage[$object_index]} / 2) ${weapon_base_damage[$object_index]});
 
   object_dotfile_entity_line="id:$RANDOM$(rand_str)";
   object_dotfile_entity_line="$object_dotfile_entity_line|file:$1";
   object_dotfile_entity_line="$object_dotfile_entity_line|room:$DIR";
   object_dotfile_entity_line="$object_dotfile_entity_line|type:weapon";
-  object_dotfile_entity_line="$object_dotfile_entity_line|damage:$(rand 1 20)";
+  object_dotfile_entity_line="$object_dotfile_entity_line|damage:$weapon_damage";
   object_dotfile_entity_line="$object_dotfile_entity_line|name:${weapon_names[$object_index]}";
   object_dotfile_entity_line="$object_dotfile_entity_line|isvisible:true";
 

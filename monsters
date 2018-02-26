@@ -116,9 +116,6 @@ attack_monster()
       break;
     fi
   done
-
-  load_monsters;
-  defend;
 }
 
 defend()

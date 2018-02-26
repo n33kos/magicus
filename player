@@ -11,20 +11,24 @@ write_config()
   source $3;
 }
 
-death()
-{
-  echo "You are dead! Type \"restart\" to create a new character";
-  if [ "$1" = "restart" ]; then
-    restart
-  fi
-  return;
-}
-
 draw_status_bar()
 {
   draw_line "$FOLDER_NAME";
-  echo "HP:$HEALTH/$CONSTITUTION | ATT:$ATTACK | DAM:$DAMAGE | DEF:$DEFENSE | MAG:$MAGIC | LVL:$LEVEL |";
+  echo "| $NAME | HP:$HEALTH/$CONSTITUTION | ATT:$ATTACK | DEF:$DEFENSE | MAG:$MAGIC | LVL:$LEVEL | $WEAPON ($DAMAGE)";
   draw_line $(echo "$FOLDER_NAME" | tr 'a-zA-Z0-9 ' '-');
+}
+
+player_heartbeat()
+{
+  if (( $MAGIC < $CONSTITUTION )); then
+    MAGIC=$(expr $MAGIC + 1);
+    set_player_value magic $MAGIC;
+  fi
+
+  if (( $HEALTH < $CONSTITUTION )); then
+    HEALTH=$(expr $HEALTH + 1);
+    set_player_value health $HEALTH;
+  fi
 }
 
 increase_xp()
@@ -46,7 +50,6 @@ increase_xp()
 
 look()
 {
-  clear;
   draw_status_bar;
   load_objects;
   load_monsters;
@@ -73,4 +76,23 @@ look()
   fi
 
   printf "$ROOM_DESCRIPTION";
+}
+
+create_new_player()
+{
+  read -ep "Enter Name >" name;
+  constitution=$(expr 10 + $(rand 1 3));
+  default_player_configs="NAME=\"$name\"";
+  default_player_configs="$default_player_configs \nHEALTH=\"$constitution\"";
+  default_player_configs="$default_player_configs \nCONSTITUTION=\"$constitution\"";
+  default_player_configs="$default_player_configs \nATTACK=\"$(expr 10 + $(rand 1 3))\"";
+  default_player_configs="$default_player_configs \nDAMAGE=\"$(expr 2 + $(rand 1 3))\"";
+  default_player_configs="$default_player_configs \nDEFENSE=\"$(expr 10 + $(rand 1 3))\"";
+  default_player_configs="$default_player_configs \nMAGIC=\"$(expr 10 + $(rand 1 3))\"";
+  default_player_configs="$default_player_configs \nLEVEL=\"1\"";
+  default_player_configs="$default_player_configs \nEXPERIENCE=\"0\"";
+  default_player_configs="$default_player_configs \nWEAPON=\"dagger\"";
+  default_player_configs="$default_player_configs \nSAVEDIR=\"/\"";
+
+  echo -e "$default_player_configs" | cat >> $PLAYER_PATH;
 }
