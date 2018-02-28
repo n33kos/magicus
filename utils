@@ -3,7 +3,9 @@
 rand ()
 {
   # rand $min $max
-  echo $(expr $RANDOM % $2 + $1);
+  min=$1;
+  max=$(expr $2 + 1);
+  echo $(expr $RANDOM % $(expr $max - $min) + $min);
 }
 
 rand_str()

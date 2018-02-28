@@ -12,6 +12,7 @@ source player;
 source monsters;
 source objects;
 source rooms;
+source spells;
 
 #-----Functions------
 init_game_loop()
@@ -51,6 +52,7 @@ process_command()
 
   actions=("attack" "a" "equip" "e" "back" "go" "teleport");
   free_actions=("look" "l" "set");
+  spells=("sana")
 
   if [[ "${actions[@]}" =~ "${1}" ]]; then
     process_action $@;
@@ -59,6 +61,11 @@ process_command()
 
   if [[ "${free_actions[@]}" =~ "${1}" ]]; then
     process_free_action $@;
+    return;
+  fi
+
+  if [[ "${spells[@]}" =~ "${1}" ]]; then
+    process_spell $@;
     return;
   fi
 
@@ -116,6 +123,17 @@ process_free_action()
 
     set)
       set_player_value $2 $3;
+    ;;
+
+    *);;
+  esac
+}
+
+process_spell()
+{
+  case "$1" in
+    sana|l)
+      heal;
     ;;
 
     *);;

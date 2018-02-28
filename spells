@@ -1,2 +1,20 @@
 #!bin/bash
 
+heal()
+{
+  if (( $MAGIC >= 4 )); then
+    heal_roll=$(rand 4 6);
+    echo $heal_roll
+    new_health=$(expr $HEALTH + $heal_roll);
+    if (( $new_health > $CONSTITUTION )); then
+      new_health=$CONSTITUTION;
+    fi
+
+    set_player_value magic $(expr $MAGIC - 4);
+    set_player_value health $new_health;
+
+    echo -e "A soft golden light surrounds you, healing ${FONT_GREEN}$heal_roll${FONT_RESTORE} points of damage";
+  else
+    echo -e "You do not have enough magic to cast that spell";
+  fi
+}
