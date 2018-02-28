@@ -1,4 +1,6 @@
 #!/bin/bash
+room_adjectives=("accessible" "adjoining" "airy" "ancient" "bare" "basic" "beautiful" "bright" "brilliant" "cavernous" "ceremonial" "clean" "colorful" "comfortable" "cozy" "damp" "dark" "decorated" "dingy" "dirty" "dismal" "dusty" "elegant" "enclosed" "enormous" "filthy" "fine" "functional" "furnished" "gilded" "gloomy" "grand" "haunted" "luxurious" "magnificent" "miserable" "modest" "ordinary" "oversize" "palatial" "panelled" "quaint" "rustic" "sacred" "shabby" "simple" "small" "smoky" "spacious" "spartan" "splendid" "spotless" "stately" "strange" "stuffy" "tidy" "tiny" "vaulted" "wretched");
+vowels=("a" "e" "i" "o" "u");
 
 get_room_adjective()
 {
@@ -11,8 +13,16 @@ get_room_adjective()
   elif [ $OBJECT_COUNT -eq 0 ]; then
     echo 'an empty';
   else
-    # Random descriptions go here
-    echo 'a filthy';
+    room_adjective_index=$(rand 0 ${#room_adjectives[@]});
+    room_adjective=${room_adjectives[$room_adjective_index]};
+    first_letter=${room_adjective:0:1};
+    adjective_prefix="a";
+
+    if [[ "${vowels[@]}" =~ "$first_letter" ]]; then
+      adjective_prefix="an";
+    fi
+
+    echo "$adjective_prefix $room_adjective";
   fi
 }
 
